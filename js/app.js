@@ -611,7 +611,10 @@ function renderSheet(first = false) {
   if (!el) return;
   // preserve focus, caret, scroll and unsent text across re-renders
   const active = document.activeElement;
-  const focusId = active && el.contains(active) ? active.id : null;
+  // only text fields get focus back; re-focusing a select/date/time makes iOS reopen its picker
+  const isTextField = a => a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && ['text', 'url', 'search', 'email', ''].includes(a.getAttribute('type') || '')));
+  const focusId = active && el.contains(active) && isTextField(active) ? active.id : null;
+  if (active && el.contains(active) && !isTextField(active)) active.blur();
   const sel = focusId && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
   if (focusId && ('value' in active)) sheet.drafts[focusId] = active.value;
   const scroll = $('#sheetBody')?.scrollTop || 0;
