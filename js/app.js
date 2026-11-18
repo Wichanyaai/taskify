@@ -650,11 +650,14 @@ function taskSheet() {
         <div class="row"><div class="seg">${seg('status', STATUS, t.status)}</div></div>
         <div class="row"><span class="lbl">ความสำคัญ</span><div class="ctl"><div class="seg">${seg('priority', PRIO, t.priority)}</div></div></div>
         <div class="row"><span class="lbl">ใครทำ</span><div class="ctl"><div class="seg">${seg('assignee', asgMap, t.assignee || '', { disabled })}</div></div></div>
-        <div class="row"><span class="lbl">หมวดหมู่</span><div class="ctl"><div class="cat-pick">
-          <button class="chip-btn ${!t.category_id ? 'on' : ''}" data-act="seg" data-f="category_id" data-v="">ไม่มี</button>
-          ${cats.map(c => `<button class="chip-btn ${t.category_id === c.id ? 'on' : ''}" data-act="seg" data-f="category_id" data-v="${c.id}" style="--c:${esc(c.color)}"><span class="dot"></span>${esc(c.name)}</button>`).join('')}
-          <button class="chip-btn" data-act="quick-cat">+ ใหม่</button>
-        </div></div></div>
+        <div class="row"><span class="lbl">หมวดหมู่</span><div class="ctl nowrap">
+          <span class="cat-dot" style="--c:${esc(store.categories.get(t.category_id)?.color || 'transparent')}"></span>
+          <select id="dCat" data-f="category_id" aria-label="หมวดหมู่">
+            <option value="" ${!t.category_id ? 'selected' : ''}>ไม่มีหมวด</option>
+            ${cats.map(c => `<option value="${c.id}" ${t.category_id === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}
+            <option value="__new">+ เพิ่มหมวดใหม่…</option>
+          </select>
+        </div></div>
       </div>
       <div class="group">
         <div class="row"><span class="lbl">${I.cal} กำหนดส่ง</span><div class="ctl nowrap">
@@ -1160,6 +1163,15 @@ function onChange(e) {
   if (f === 'note') val = val.replace(/\s+$/, '');
   if (f === 'due_date') {
     if (!val) { commit({ due_date: null, due_time: null, remind_before: null }); return; }
+  }
+  if (f === 'category_id') {
+    if (val === '__new') {
+      const name = prompt('ชื่อหมวดหมู่ใหม่');
+      if (name?.trim()) commit({ category_id: db.createCategory(name, COLORS[store.categories.size % COLORS.length]).id });
+      else el.value = t.category_id || '';
+      return;
+    }
+    val = val || null;
   }
   if (f === 'due_time') val = val || null;
   if (f === 'remind_before') val = val === '' ? null : Number(val);
