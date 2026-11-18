@@ -160,6 +160,10 @@ main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 96px
 .tag.od { color: #fff; background: var(--high); border-color: var(--high); }
 .tag.today { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
 .tag.doing { color: var(--doing); }
+.tag.st-todo { color: var(--text); }
+.tag.st-doing { color: #fff; background: var(--doing); border-color: var(--doing); }
+.tag.st-done { color: #fff; background: var(--done); border-color: var(--done); }
+.tag.none { color: var(--faint); border-style: dashed; background: transparent; }
 .tag.run { color: #fff; background: var(--accent); border-color: var(--accent); }
 .tag .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
 .t-side { display: flex; flex-direction: column; align-items: center; gap: 6px; }

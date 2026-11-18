@@ -74,6 +74,7 @@ const STATUS = { todo: 'ยังไม่เริ่ม', doing: 'กำลั
 const PRIO = { high: 'สูง', mid: 'กลาง', low: 'ต่ำ' };
 const REPEAT = { none: 'ไม่ซ้ำ', daily: 'ทุกวัน', weekly: 'ทุกสัปดาห์', monthly: 'ทุกเดือน' };
 const REMIND = [['', 'ไม่เตือน'], ['0', 'ตรงเวลา'], ['15', 'ก่อน 15 นาที'], ['60', 'ก่อน 1 ชั่วโมง'], ['180', 'ก่อน 3 ชั่วโมง'], ['1440', 'ก่อน 1 วัน']];
+const REMIND_SHORT = { 0: 'เตือนตรงเวลา', 15: 'เตือนก่อน 15 นาที', 60: 'เตือนก่อน 1 ชม.', 180: 'เตือนก่อน 3 ชม.', 1440: 'เตือนก่อน 1 วัน' };
 const COLORS = ['#2f6fed', '#7c5cff', '#e8508a', '#e5484d', '#e8811c', '#d4a514', '#2e9e66', '#12a3a3', '#8a8f98'];
 const ACCENTS = ['#2f6fed', '#7c5cff', '#e8508a', '#e5484d', '#e8811c', '#2e9e66', '#12a3a3'];
 const VIEWS = [
@@ -94,6 +95,7 @@ const I = {
   chart: svg('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
   trash: svg('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
   pin: svg('<path d="M15 3l6 6-3 1-4 4 .5 4.5L13 20l-4-4-5 5M9 16l-4-4 1.5-1.5L11 11l4-4 1-3"/>'),
+  flag: svg('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'),
   clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
   repeat: svg('<path d="M17 2l3 3-3 3M4 11V9a4 4 0 014-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 01-4 4H4"/>'),
   bell: svg('<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/>'),
@@ -247,16 +249,21 @@ function card(t, opts = {}) {
   const asg = t.assignee ? db.memberById(t.assignee) : null;
   const cc = commentCount(t.id);
   const att = (t.attachments || []).length;
+  // always-visible fields: status, priority, category, due date, reminder (who = avatars on the right)
   const tags = [];
-  if (t.status === 'doing') tags.push(`<span class="tag doing">กำลังทำ</span>`);
-  if (t.priority !== 'mid') tags.push(`<span class="tag ${t.priority}">${PRIO[t.priority]}</span>`);
+  tags.push(`<span class="tag st-${t.status}">${STATUS[t.status]}</span>`);
+  tags.push(`<span class="tag ${t.priority}">${I.flag}${PRIO[t.priority]}</span>`);
+  tags.push(cat
+    ? `<span class="tag" style="--c:${esc(cat.color)}"><span class="dot"></span>${esc(cat.name)}</span>`
+    : `<span class="tag none">ไม่มีหมวด</span>`);
   if (t.due_date) {
     const cls = od ? 'od' : (t.due_date === today() && t.status !== 'done' ? 'today' : '');
     tags.push(`<span class="tag ${cls}">${I.cal}${fmtDay(t.due_date)}${t.due_time ? ' ' + fmtTime(t.due_time) : ''}</span>`);
-  }
-  if (cat && !opts.hideCat) tags.push(`<span class="tag" style="--c:${esc(cat.color)}"><span class="dot"></span>${esc(cat.name)}</span>`);
+  } else tags.push(`<span class="tag none">${I.cal}ไม่มีกำหนด</span>`);
+  tags.push(t.remind_before != null && t.due_date
+    ? `<span class="tag">${I.bell}${REMIND_SHORT[t.remind_before] ?? 'เตือน'}</span>`
+    : `<span class="tag none">${I.bell}ไม่เตือน</span>`);
   if (t.repeat !== 'none') tags.push(`<span class="tag">${I.repeat}${REPEAT[t.repeat]}</span>`);
-  if (t.remind_before != null && t.due_date && t.status !== 'done') tags.push(`<span class="tag">${I.bell}</span>`);
   if (subs.length) tags.push(`<span class="tag">${I.tasks}${sd}/${subs.length}</span>`);
   if (att) tags.push(`<span class="tag">${I.clip}${att}</span>`);
   if (cc) tags.push(`<span class="tag">${I.chat}${cc}</span>`);
