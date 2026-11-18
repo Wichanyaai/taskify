@@ -232,6 +232,13 @@ function avatar(m, cls = '') {
   return `<span class="avatar ${cls}" style="--c:${esc(m.color)}" title="${esc(m.display_name)}">${esc(initial(m.display_name))}</span>`;
 }
 
+// shared task (no assignee): both members' circles, slightly overlapped
+function sharedAvatars() {
+  const ms = store.members.slice(0, 2);
+  if (ms.length < 2) return '';
+  return `<span class="avatars" title="ร่วมกัน">${ms.map(m => avatar(m, 'sm')).join('')}</span>`;
+}
+
 function card(t, opts = {}) {
   const cat = store.categories.get(t.category_id);
   const subs = t.subtasks || [];
@@ -267,7 +274,7 @@ function card(t, opts = {}) {
         ${subs.length && t.status !== 'done' ? `<div class="sub-bar"><div style="width:${(sd / subs.length) * 100}%"></div></div>` : ''}
       </div>
       <div class="t-side">
-        ${asg ? avatar(asg, 'sm') : ''}
+        ${asg ? avatar(asg, 'sm') : sharedAvatars()}
         ${t.pinned ? `<span class="pin">${I.pin}</span>` : ''}
         ${opts.handle ? `<button class="handle" data-drag="reorder" aria-label="ลากเพื่อเรียงลำดับ">${I.grip}</button>` : ''}
       </div>
