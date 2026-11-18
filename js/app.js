@@ -606,26 +606,75 @@ function closeSheet() {
   setTimeout(() => { if (!sheet.open) $('#sheet').innerHTML = ''; }, 320);
 }
 
+/* Minimal DOM morph: update the live sheet in place so existing elements
+   (especially <select>, date and time inputs) are never destroyed and recreated.
+   Replacing a picker that iOS still has open makes iOS reopen it. */
+const isFormEl = n => n.nodeType === 1 && (n.tagName === 'SELECT' || n.tagName === 'INPUT' || n.tagName === 'TEXTAREA');
+function morphChildren(from, to) {
+  const a = [...from.childNodes], b = [...to.childNodes];
+  for (let i = 0; i < b.length; i++) {
+    const n = b[i], o = a[i];
+    if (!o) { from.appendChild(n); continue; }
+    const same = o.nodeType === n.nodeType && o.nodeName === n.nodeName &&
+      (o.nodeType !== 1 || ((o.id || '') === (n.id || '') && o.getAttribute('type') === n.getAttribute('type')));
+    if (!same) { from.replaceChild(n, o); continue; }
+    if (o.nodeType !== 1) { if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue; continue; }
+    morphEl(o, n);
+  }
+  for (let i = b.length; i < a.length; i++) a[i].remove();
+}
+function morphEl(from, to) {
+  for (const at of [...from.attributes]) if (!to.hasAttribute(at.name)) from.removeAttribute(at.name);
+  for (const at of [...to.attributes]) if (from.getAttribute(at.name) !== at.value) from.setAttribute(at.name, at.value);
+  if (from.tagName === 'TEXTAREA') {
+    if (document.activeElement !== from && from.value !== to.value) from.value = to.value;
+    return;
+  }
+  if (from.tagName === 'SELECT') {
+    morphChildren(from, to);
+    if (document.activeElement !== from && from.value !== to.value) from.value = to.value;
+    return;
+  }
+  if (from.tagName === 'INPUT') {
+    if (document.activeElement !== from) {
+      const v = to.getAttribute('value') ?? '';
+      if (from.value !== v) from.value = v;
+      if (from.checked !== to.hasAttribute('checked')) from.checked = to.hasAttribute('checked');
+    }
+    return;
+  }
+  morphChildren(from, to);
+}
+
 function renderSheet(first = false) {
   const el = $('#sheet');
   if (!el) return;
-  // preserve focus, caret, scroll and unsent text across re-renders
-  const active = document.activeElement;
-  // only text fields get focus back; re-focusing a select/date/time makes iOS reopen its picker
-  const isTextField = a => a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && ['text', 'url', 'search', 'email', ''].includes(a.getAttribute('type') || '')));
-  const focusId = active && el.contains(active) && isTextField(active) ? active.id : null;
-  if (active && el.contains(active) && !isTextField(active)) active.blur();
-  const sel = focusId && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
-  if (focusId && ('value' in active)) sheet.drafts[focusId] = active.value;
-  const scroll = $('#sheetBody')?.scrollTop || 0;
-
-  el.innerHTML = sheet.kind === 'settings' ? settingsSheet() : taskSheet();
+  const html = sheet.kind === 'settings' ? settingsSheet() : taskSheet();
   if (!sheet.open) return;
 
-  for (const [id, v] of Object.entries(sheet.drafts)) { const f = document.getElementById(id); if (f && f.value !== v) f.value = v; }
-  const body = $('#sheetBody');
-  if (body && !first) body.scrollTop = scroll;
-  if (focusId) { const f = document.getElementById(focusId); if (f) { f.focus({ preventScroll: true }); if (sel && f.setSelectionRange) try { f.setSelectionRange(...sel); } catch {} } }
+  if (first || !el.firstElementChild) {
+    el.innerHTML = html;
+  } else {
+    // remember the focused text field in case its element gets replaced (e.g. list rows shift)
+    const active = document.activeElement;
+    const focusId = active && el.contains(active) && isFormEl(active) ? active.id : null;
+    const sel = focusId && active.tagName !== 'SELECT' && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
+    if (focusId && active.tagName !== 'SELECT') sheet.drafts[focusId] = active.value;
+    const tpl = document.createElement('div');
+    tpl.innerHTML = html;
+    morphChildren(el, tpl);
+    // only text fields get focus back; never re-focus pickers (iOS would reopen them)
+    if (focusId && document.activeElement?.id !== focusId) {
+      const f = document.getElementById(focusId);
+      const isText = f && (f.tagName === 'TEXTAREA' || (f.tagName === 'INPUT' && ['text', 'url', 'search', 'email', null].includes(f.getAttribute('type'))));
+      if (isText) { f.focus({ preventScroll: true }); if (sel && f.setSelectionRange) try { f.setSelectionRange(...sel); } catch {} }
+    }
+  }
+
+  for (const [id, v] of Object.entries(sheet.drafts)) {
+    const f = document.getElementById(id);
+    if (f && f !== document.activeElement && f.value !== v) f.value = v;
+  }
   autosize($('#dTitle'));
   loadPhotos();
   if (first) { requestAnimationFrame(() => { el.classList.add('open'); $('#backdrop').classList.add('open'); }); }
@@ -677,7 +726,7 @@ function taskSheet() {
         </div></div>
       </div>
       <div class="group">
-        <div class="row"><span class="lbl">${I.cal} กำหนดส่ง</span><div class="ctl nowrap">
+        <div class="row stack"><span class="lbl">${I.cal} กำหนดส่ง</span><div class="ctl nowrap">
           <input type="date" id="dDate" data-f="due_date" value="${t.due_date || ''}">
           <input type="time" id="dTime" data-f="due_time" value="${fmtTime(t.due_time)}" ${t.due_date ? '' : 'disabled'} aria-label="เวลา">
           ${t.due_date ? `<button class="x-btn" data-act="clear-due" aria-label="ล้างกำหนดส่ง">${I.x}</button>` : ''}
@@ -1490,7 +1539,20 @@ async function startApp() {
 }
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+    .then(reg => {
+      // look for a new version whenever the app comes back to the foreground
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    })
+    .catch(() => {});
+  // a new version took over: reload once so the new code runs (not on first install)
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded || sheet.open) return;
+    reloaded = true;
+    location.reload();
+  });
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data?.type === 'open-task' && e.data.id) openTask(e.data.id);
   });

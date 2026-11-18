@@ -294,8 +294,11 @@ main { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 96px
   border: 1px solid var(--line); background: var(--surface-2); border-radius: 10px; padding: 7px 10px; min-height: 36px; outline: none;
 }
 .ctl.nowrap { flex-wrap: nowrap; }
+.row.stack { flex-wrap: wrap; row-gap: 8px; }
+.row.stack > .lbl { width: 100%; }
+.row.stack > .ctl { flex-basis: 100%; justify-content: flex-start; }
 .ctl input[type="date"] { min-width: 0; flex: 1 1 0; width: 0; }
-.ctl input[type="time"] { min-width: 0; flex: 0 0 88px; width: 88px; }
+.ctl input[type="time"] { min-width: 0; flex: 0 0 116px; width: 116px; }
 .ctl input[type="date"]:disabled, .ctl input[type="time"]:disabled, .ctl select:disabled { opacity: .45; }
 .ctl select { flex: 1; max-width: 220px; }
 .inp { width: 100%; }

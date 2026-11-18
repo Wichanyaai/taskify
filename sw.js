@@ -1,5 +1,5 @@
 // Taskify service worker: offline app shell + push notifications
-const CACHE = 'taskify-v2';
+const CACHE = 'taskify-v3';
 const SHELL = [
   './', 'index.html', 'css/app.css', 'js/app.js', 'js/db.js', 'js/config.js',
   'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png',
@@ -7,7 +7,9 @@ const SHELL = [
 const CDN = 'https://cdn.jsdelivr.net/';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'no-cache' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', e => {
@@ -32,10 +34,10 @@ self.addEventListener('fetch', e => {
     })));
     return;
   }
-  // own files: network first, fall back to cache when offline
+  // own files: network first (revalidating past the HTTP cache), fall back to cache when offline
   if (url.origin === self.location.origin) {
     e.respondWith(
-      fetch(req).then(res => {
+      fetch(req.url, { cache: 'no-cache' }).then(res => {
         if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
         return res;
       }).catch(() => caches.match(req, { ignoreSearch: true }).then(hit => hit || caches.match('index.html'))),
