@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Taskify">
+<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16171a" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Taskify</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --line: #e4e2dc;
+    --accent: #2f6fed; --accent-ink: #fff;
+    --high: #d93f3f; --mid: #e3901b; --low: #3a9d5d;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a; --card: #222328; --text: #f2f2f4; --muted: #9a9aa2; --line: #33343a;
+      --accent: #5b8cff; --accent-ink: #0d1020;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Sukhumvit Set", "Thonburi", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.4;
+    padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 90px);
+  }
+  header { padding: 20px 16px 8px; max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 30px; margin: 0; letter-spacing: -0.5px; }
+  .summary { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .progress { height: 6px; background: var(--line); border-radius: 99px; margin-top: 10px; overflow: hidden; }
+  .progress > div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+
+  .tabs { display: flex; gap: 6px; padding: 12px 16px; max-width: 640px; margin: 0 auto; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    border: 1px solid var(--line); background: var(--card); color: var(--text);
+    padding: 7px 14px; border-radius: 99px; font: inherit; font-size: 14px; white-space: nowrap;
+  }
+  .tab.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .tab .n { opacity: .6; margin-left: 4px; }
+
+  main { max-width: 640px; margin: 0 auto; padding: 0 16px; }
+  .group-title { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin: 16px 4px 6px; }
+  .list { display: flex; flex-direction: column; gap: 8px; }
+  .task {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px; display: flex; gap: 12px; align-items: flex-start;
+  }
+  .check {
+    flex: none; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--muted);
+    background: transparent; margin-top: 1px; display: grid; place-items: center; color: transparent; font-size: 15px;
+  }
+  .task.doing .check { border-color: var(--mid); color: var(--mid); }
+  .task.done .check { background: var(--low); border-color: var(--low); color: #fff; }
+  .body { flex: 1; min-width: 0; }
+  .title { font-weight: 600; word-wrap: break-word; }
+  .task.done .title { text-decoration: line-through; color: var(--muted); }
+  .note { color: var(--muted); font-size: 14px; margin-top: 2px; white-space: pre-wrap; word-wrap: break-word; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; font-size: 12px; }
+  .chip { padding: 2px 8px; border-radius: 99px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+  .chip.high { color: var(--high); border-color: color-mix(in srgb, var(--high) 40%, transparent); }
+  .chip.mid { color: var(--mid); border-color: color-mix(in srgb, var(--mid) 40%, transparent); }
+  .chip.low { color: var(--low); border-color: color-mix(in srgb, var(--low) 40%, transparent); }
+  .chip.overdue { color: #fff; background: var(--high); border-color: var(--high); }
+  .chip.status { color: var(--mid); }
+  .more { background: none; border: none; color: var(--muted); font-size: 20px; padding: 0 4px; }
+
+  .empty { text-align: center; color: var(--muted); padding: 48px 16px; }
+  .empty .big { font-size: 40px; }
+
+  .fab {
+    position: fixed; right: 20px; bottom: calc(env(safe-area-inset-bottom) + 20px);
+    width: 60px; height: 60px; border-radius: 50%; border: none;
+    background: var(--accent); color: var(--accent-ink); font-size: 32px; line-height: 1;
+    box-shadow: 0 6px 20px rgba(0,0,0,.2);
+  }
+
+  /* sheet */
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .backdrop.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; max-width: 640px; margin: 0 auto;
+    background: var(--card); border-radius: 20px 20px 0 0;
+    padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px);
+    transform: translateY(105%); transition: transform .25s ease-out; max-height: 92vh; overflow-y: auto;
+  }
+  .sheet.open { transform: none; }
+  .sheet h2 { margin: 0 0 12px; font-size: 20px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 4px; }
+  input, textarea, select {
+    width: 100%; font: inherit; font-size: 16px; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  }
+  textarea { resize: vertical; min-height: 64px; }
+  .seg { display: flex; gap: 6px; }
+  .seg button {
+    flex: 1; font: inherit; font-size: 14px; padding: 9px 4px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  }
+  .seg button.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .actions { display: flex; gap: 8px; margin-top: 18px; }
+  .btn { flex: 1; font: inherit; font-weight: 600; padding: 13px; border-radius: 12px; border: none; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); }
+  .btn.ghost { background: var(--bg); color: var(--text); border: 1px solid var(--line); }
+  .btn.danger { background: transparent; color: var(--high); border: 1px solid var(--line); flex: 0 0 auto; padding: 13px 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>งานของฉัน</h1>
+  <div class="summary" id="summary"></div>
+  <div class="progress"><div id="bar"></div></div>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+<main id="main"></main>
+
+<button class="fab" id="fab" aria-label="เพิ่มงาน">+</button>
+
+<div class="backdrop" id="backdrop"></div>
+<form class="sheet" id="sheet" autocomplete="off">
+  <h2 id="sheetTitle">งานใหม่</h2>
+  <label for="fTitle">ชื่องาน</label>
+  <input id="fTitle" required maxlength="200" placeholder="เช่น ส่งรายงานลูกค้า">
+  <label for="fNote">รายละเอียด</label>
+  <textarea id="fNote" placeholder="(ไม่บังคับ)"></textarea>
+  <label for="fDue">กำหนดส่ง</label>
+  <input id="fDue" type="date">
+  <label>ความสำคัญ</label>
+  <div class="seg" id="fPrio">
+    <button type="button" data-v="high">สูง</button>
+    <button type="button" data-v="mid">กลาง</button>
+    <button type="button" data-v="low">ต่ำ</button>
+  </div>
+  <label>สถานะ</label>
+  <div class="seg" id="fStatus">
+    <button type="button" data-v="todo">ยังไม่เริ่ม</button>
+    <button type="button" data-v="doing">กำลังทำ</button>
+    <button type="button" data-v="done">เสร็จแล้ว</button>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn danger" id="btnDelete">ลบ</button>
+    <button type="button" class="btn ghost" id="btnCancel">ยกเลิก</button>
+    <button type="submit" class="btn primary">บันทึก</button>
+  </div>
+</form>
+
+<script>
+const KEY = 'taskify.v1';
+const PRIO = { high: 'สูง', mid: 'กลาง', low: 'ต่ำ' };
+const STATUS = { todo: 'ยังไม่เริ่ม', doing: 'กำลังทำ', done: 'เสร็จแล้ว' };
+const TABS = [
+  { id: 'active', label: 'ค้างอยู่' },
+  { id: 'today', label: 'วันนี้' },
+  { id: 'doing', label: 'กำลังทำ' },
+  { id: 'done', label: 'เสร็จแล้ว' },
+  { id: 'all', label: 'ทั้งหมด' },
+];
+
+let tasks = load();
+let tab = 'active';
+let editingId = null;
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(tasks)); } catch {}
+}
+const todayStr = () => {
+  const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+};
+const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function fmtDue(due) {
+  const t = todayStr();
+  if (due === t) return 'วันนี้';
+  const diff = Math.round((new Date(due) - new Date(t)) / 86400000);
+  if (diff === 1) return 'พรุ่งนี้';
+  if (diff === -1) return 'เมื่อวาน';
+  return new Date(due).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+}
+
+function filtered(id) {
+  const t = todayStr();
+  switch (id) {
+    case 'active': return tasks.filter(x => x.status !== 'done');
+    case 'today': return tasks.filter(x => x.status !== 'done' && x.due && x.due <= t);
+    case 'doing': return tasks.filter(x => x.status === 'doing');
+    case 'done': return tasks.filter(x => x.status === 'done');
+    default: return tasks.slice();
+  }
+}
+
+const prioRank = { high: 0, mid: 1, low: 2 };
+function sortTasks(list) {
+  return list.sort((a, b) =>
+    (a.status === 'done') - (b.status === 'done') ||
+    (a.due || '9999') .localeCompare(b.due || '9999') ||
+    prioRank[a.prio] - prioRank[b.prio] ||
+    b.created - a.created);
+}
+
+function render() {
+  const total = tasks.length, done = tasks.filter(x => x.status === 'done').length;
+  const overdue = tasks.filter(x => x.status !== 'done' && x.due && x.due < todayStr()).length;
+  document.getElementById('summary').textContent = total
+    ? `เสร็จ ${done}/${total} งาน` + (overdue ? ` · เลยกำหนด ${overdue}` : '')
+    : 'ยังไม่มีงาน';
+  document.getElementById('bar').style.width = total ? (done / total * 100) + '%' : '0';
+
+  document.getElementById('tabs').innerHTML = TABS.map(x =>
+    `<button class="tab ${x.id === tab ? 'active' : ''}" data-tab="${x.id}">${x.label}<span class="n">${filtered(x.id).length}</span></button>`
+  ).join('');
+
+  const list = sortTasks(filtered(tab));
+  const main = document.getElementById('main');
+  if (!list.length) {
+    main.innerHTML = `<div class="empty"><div class="big">${tab === 'done' ? '🌱' : '✨'}</div>
+      ${tab === 'done' ? 'ยังไม่มีงานที่เสร็จ' : 'ไม่มีงานค้าง กด + เพื่อเพิ่มงาน'}</div>`;
+    return;
+  }
+  main.innerHTML = `<div class="list">${list.map(taskHTML).join('')}</div>`;
+}
+
+function taskHTML(x) {
+  const t = todayStr();
+  const overdue = x.due && x.due < t && x.status !== 'done';
+  const icon = x.status === 'done' ? '✓' : x.status === 'doing' ? '●' : '';
+  return `<div class="task ${x.status}" data-id="${x.id}">
+    <button class="check" data-act="cycle" aria-label="เปลี่ยนสถานะ">${icon}</button>
+    <div class="body" data-act="edit">
+      <div class="title">${esc(x.title)}</div>
+      ${x.note ? `<div class="note">${esc(x.note)}</div>` : ''}
+      <div class="meta">
+        <span class="chip ${x.prio}">${PRIO[x.prio]}</span>
+        ${x.status === 'doing' ? `<span class="chip status">กำลังทำ</span>` : ''}
+        ${x.due ? `<span class="chip ${overdue ? 'overdue' : ''}">📅 ${fmtDue(x.due)}</span>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+/* events */
+document.getElementById('tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  tab = b.dataset.tab; render();
+});
+document.getElementById('main').addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const id = el.closest('.task').dataset.id;
+  const x = tasks.find(t => t.id === id);
+  if (el.dataset.act === 'cycle') {
+    x.status = { todo: 'doing', doing: 'done', done: 'todo' }[x.status];
+    save(); render();
+  } else openSheet(x);
+});
+
+const sheet = document.getElementById('sheet'), backdrop = document.getElementById('backdrop');
+function setSeg(id, v) {
+  document.querySelectorAll(`#${id} button`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
+}
+const getSeg = id => document.querySelector(`#${id} button.on`)?.dataset.v;
+['fPrio', 'fStatus'].forEach(id =>
+  document.getElementById(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (b) setSeg(id, b.dataset.v);
+  }));
+
+function openSheet(x) {
+  editingId = x ? x.id : null;
+  document.getElementById('sheetTitle').textContent = x ? 'แก้ไขงาน' : 'งานใหม่';
+  document.getElementById('fTitle').value = x?.title || '';
+  document.getElementById('fNote').value = x?.note || '';
+  document.getElementById('fDue').value = x?.due || '';
+  setSeg('fPrio', x?.prio || 'mid');
+  setSeg('fStatus', x?.status || 'todo');
+  document.getElementById('btnDelete').style.display = x ? '' : 'none';
+  sheet.classList.add('open'); backdrop.classList.add('open');
+  if (!x) setTimeout(() => document.getElementById('fTitle').focus(), 250);
+}
+function closeSheet() {
+  sheet.classList.remove('open'); backdrop.classList.remove('open');
+  document.activeElement?.blur();
+}
+
+document.getElementById('fab').onclick = () => openSheet(null);
+document.getElementById('btnCancel').onclick = closeSheet;
+backdrop.onclick = closeSheet;
+document.getElementById('btnDelete').onclick = () => {
+  if (!confirm('ลบงานนี้?')) return;
+  tasks = tasks.filter(t => t.id !== editingId);
+  save(); closeSheet(); render();
+};
+sheet.addEventListener('submit', e => {
+  e.preventDefault();
+  const data = {
+    title: document.getElementById('fTitle').value.trim(),
+    note: document.getElementById('fNote').value.trim(),
+    due: document.getElementById('fDue').value,
+    prio: getSeg('fPrio'),
+    status: getSeg('fStatus'),
+  };
+  if (!data.title) return;
+  if (editingId) Object.assign(tasks.find(t => t.id === editingId), data);
+  else tasks.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), created: Date.now(), ...data });
+  save(); closeSheet(); render();
+});
+
+render();
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
